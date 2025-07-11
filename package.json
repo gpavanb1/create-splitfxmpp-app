@@ -1,0 +1,23 @@
+{
+  "name": "create-splitfxmpp-app",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "create-splitfxmpp-app": "./bin/create-splitfxmpp-app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "chalk": "^5.4.1",
+    "change-case": "^5.4.4",
+    "execa": "^9.6.0",
+    "fs-extra": "^11.3.0",
+    "inquirer": "^12.7.0"
+  }
+}
