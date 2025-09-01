@@ -20,8 +20,19 @@ async function main() {
     appName = response.appName;
   }
 
-  const pascal = pascalCase(appName); // e.g. Trajectory
-  const snake = snakeCase(appName);   // e.g. trajectory
+  function isPascalCase(str) {
+    // starts with uppercase, then only letters/numbers
+    return /^[A-Z][A-Za-z0-9]*$/.test(str);
+  }
+
+  let pascal;
+  if (isPascalCase(appName)) {
+    pascal = appName; // keep exactly what user typed
+  } else {
+    pascal = pascalCase(appName); // normalize messy input
+  }
+
+  const snake = snakeCase(appName);
   const target = path.resolve(process.cwd(), pascal);
 
   if (fs.existsSync(target)) {
