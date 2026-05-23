@@ -25,18 +25,20 @@ async function main() {
     return /^[A-Z][A-Za-z0-9]*$/.test(str);
   }
 
-  let pascal;
-  if (isPascalCase(appName)) {
-    pascal = appName; // keep exactly what user typed
-  } else {
-    pascal = pascalCase(appName); // normalize messy input
-  }
+  const baseName = appName.replace(/FXMpp$/i, '');
+  const basePascal = isPascalCase(baseName) ? baseName : pascalCase(baseName);
+  const baseSnake = snakeCase(baseName);
 
-  const snake = snakeCase(appName);
-  const target = path.resolve(process.cwd(), pascal);
+  const fullPascal = appName.toLowerCase().endsWith('fxmpp')
+    ? (isPascalCase(appName) ? appName : pascalCase(appName))
+    : `${basePascal}FXMpp`;
+
+  const fullSnake = `${baseSnake}fxm`;
+
+  const target = path.resolve(process.cwd(), fullPascal);
 
   if (fs.existsSync(target)) {
-    console.error(chalk.red(`❌ Folder '${pascal}' already exists`));
+    console.error(chalk.red(`❌ Folder '${fullPascal}' already exists`));
     process.exit(1);
   }
 
@@ -47,54 +49,59 @@ async function main() {
   // Rename app include folder
   console.log(chalk.blue('🔧 Renaming app include folder...'));
   const oldAppPath = path.join(target, 'include', 'app');
-  const newAppPath = path.join(target, 'include', snake);
+  const newAppPath = path.join(target, 'include', fullSnake);
   await fs.move(oldAppPath, newAppPath);
 
   // Rename test file(s)
   console.log(chalk.blue('🔧 Renaming test files...'));
   const testsDir = path.join(target, 'tests');
-  const testFiles = await fs.readdir(testsDir);
-  for (const file of testFiles) {
-    if (file.includes('test_app')) {
-      const oldPath = path.join(testsDir, file);
-      const newFile = file.replace(/test_app/, `test_${snake}`);
-      const newPath = path.join(testsDir, newFile);
-      await fs.move(oldPath, newPath);
+  if (fs.existsSync(testsDir)) {
+    const testFiles = await fs.readdir(testsDir);
+    for (const file of testFiles) {
+      if (file.includes('test_app')) {
+        const oldPath = path.join(testsDir, file);
+        const newFile = file.replace(/test_app/, `test_${fullSnake}`);
+        const newPath = path.join(testsDir, newFile);
+        await fs.move(oldPath, newPath);
+      }
     }
   }
 
   // Replace symbols in all files
   console.log(chalk.blue('🔧 Rewriting symbols...'));
+  
   const replacements = {
-    AppModel: `${pascal}Model`,
-    AppEquation: `${pascal}Equation`,
-    AppEquationTest: `${pascal}EquationTest`,
-    'app.model': `${snake}.model`,
-    'app.equation': `${snake}.equation`,
-    'app/': `${snake}/`,
-    'app.': `${snake}.`,
-    'App': pascal,
-    'app': snake, // must be last
+    'AppFXMpp': fullPascal,
+    'appfxm': fullSnake,
+    'AppModel': `${fullPascal}Model`,
+    'AppEquation': `${fullPascal}Equation`,
+    'AppEquationTest': `${fullPascal}EquationTest`,
+    'app.model': `${fullSnake}.model`,
+    'app.equation': `${fullSnake}.equation`,
+    'app/': `${fullSnake}/`,
+    'app.': `${fullSnake}.`,
+    'App': fullPascal,
+    'app': fullSnake, // must be last
   };
 
   await traverseAndReplace(target, replacements);
 
   console.log(chalk.green('\n✅ Your app scaffold is ready!'));
-  console.log(`\n  cd ${pascal}`);
+  console.log(`\n  cd ${fullPascal}`);
   console.log(chalk.gray('Initialize git, install deps, and start building!'));
 }
 
 async function traverseAndReplace(dir, replacements) {
+  const sortedKeys = Object.keys(replacements).sort((a, b) => b.length - a.length);
+  const pattern = new RegExp(sortedKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+
   for (const ent of await fs.readdir(dir, { withFileTypes: true })) {
     const filePath = path.join(dir, ent.name);
     if (ent.isDirectory()) {
       await traverseAndReplace(filePath, replacements);
     } else {
       let content = await fs.readFile(filePath, 'utf8');
-      for (const [from, to] of Object.entries(replacements)) {
-        const pattern = new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-        content = content.replace(pattern, to);
-      }
+      content = content.replace(pattern, (matched) => replacements[matched]);
       await fs.writeFile(filePath, content);
     }
   }
